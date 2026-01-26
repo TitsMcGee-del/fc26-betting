@@ -1,14 +1,398 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>FC26 Betting</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bet365 Elite Dashboard</title>
+  
+  <style>
+    /* Bet365 Color Palette */
+    :root {
+      --b365-dark-green: #007355;
+      --b365-bright-green: #12ed80;
+      --b365-header-bg: #333333;
+      --b365-body-bg: #282828;
+      --b365-card-bg: #383838;
+      --b365-text-white: #ffffff;
+      --b365-text-gray: #bbbbbb;
+      --b365-accent-yellow: #ffdf1b;
+      --b365-border: #444444;
+      --b365-red: #d32f2f;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--b365-body-bg);
+      color: var(--b365-text-white);
+      margin: 0; padding: 0;
+      overflow-x: hidden;
+    }
+
+    header {
+      background-color: var(--b365-header-bg);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 3px solid var(--b365-dark-green);
+      position: sticky; top: 0; z-index: 100;
+    }
+
+    .container { padding: 15px; max-width: 1200px; margin: auto; }
+
+    /* Tabs */
+    .tab-bar { display: flex; background: #333; border-bottom: 1px solid var(--b365-border); overflow-x: auto; }
+    .tab-item { padding: 15px 20px; cursor: pointer; color: var(--b365-text-gray); font-weight: bold; font-size: 0.85rem; text-transform: uppercase; white-space: nowrap; }
+    .tab-item.active { color: var(--b365-bright-green); border-bottom: 3px solid var(--b365-bright-green); background: #3d3d3d; }
+
+    /* Cards */
+    .card { background: var(--b365-card-bg); border-radius: 4px; margin-bottom: 15px; border: 1px solid var(--b365-border); }
+    .card-header { padding: 12px 15px; background: #404040; font-weight: bold; border-bottom: 1px solid var(--b365-border); color: var(--b365-text-gray); font-size: 0.8rem; text-transform: uppercase; }
+    .card-body { padding: 15px; }
+
+    /* Buttons */
+    .btn-main { background: var(--b365-dark-green); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-main:hover { background: var(--b365-bright-green); color: #000; }
+    .btn-yellow { background: var(--b365-accent-yellow); color: #000; border: none; padding: 10px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+    .btn-danger { background: var(--b365-red); color: white; border: none; padding: 8px; cursor: pointer; border-radius: 4px; }
+
+    /* Table Styles */
+    table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+    th { text-align: left; background: #333; color: var(--b365-text-gray); padding: 10px; font-size: 0.7rem; }
+    td { padding: 10px; border-bottom: 1px solid var(--b365-border); font-size: 0.9rem; }
+
+    /* Bracket UI */
+    .bracket-container { display: flex; justify-content: space-around; align-items: center; padding: 20px; background: #333; overflow-x: auto; min-height: 200px; }
+    .bracket-match { border: 1px solid #555; background: #444; padding: 10px; width: 180px; text-align: center; border-radius: 4px; }
+    .bracket-label { font-size: 0.65rem; color: var(--b365-accent-yellow); margin-bottom: 5px; }
+
+    /* Match Odds Row */
+    .match-row { display: grid; grid-template-columns: 1fr 240px; padding: 15px; border-bottom: 1px solid var(--b365-border); }
+    .odds-group { display: flex; gap: 8px; }
+    .odd-box { background: #444; padding: 10px; text-align: center; flex: 1; cursor: pointer; border-radius: 2px; border: 1px solid transparent; }
+    .odd-box:hover { border-color: var(--b365-bright-green); background: #4a4a4a; }
+    .odd-val { color: var(--b365-accent-yellow); font-weight: bold; display: block; font-size: 1.1rem; }
+    .odd-lbl { font-size: 0.7rem; color: var(--b365-text-gray); }
+
+    #login-screen { max-width: 350px; margin: 100px auto; }
+    input, select { background: #444; border: 1px solid #555; color: white; padding: 8px; border-radius: 4px; width: 100%; margin-bottom: 10px; box-sizing: border-box; }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/12.5.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.5.0/firebase-database-compat.js"></script>
 </head>
 <body>
-  <h1>FC26 Betting</h1>
 
-  <button onclick="placeBet()">Place Bet</button>
+  <header>
+    <div style="font-weight: 900; font-size: 1.6rem; color: var(--b365-bright-green); letter-spacing: -1px;">bet365</div>
+    <div id="user-info-head">
+       <span id="userNameDisplay" style="color: #aaa; font-size: 0.8rem; margin-right: 15px;"></span>
+       <button class="btn-main" id="logoutBtn" style="display:none" onclick="logout()">LOGOUT</button>
+    </div>
+  </header>
 
-  <script src="app.js"></script>
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen">
+    <div class="card">
+      <div class="card-header">Member Login</div>
+      <div class="card-body">
+        <input id="userIn" placeholder="Username" />
+        <input id="passIn" type="password" placeholder="Password" />
+        <button class="btn-yellow" onclick="handleLogin()">LOGIN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app" style="display:none">
+    
+    <!-- ADMIN TABS -->
+    <div id="admin-navbar" class="tab-bar" style="display:none">
+      <div class="tab-item active" onclick="switchTab('tab-matches', this)">Matches</div>
+      <div class="tab-item" onclick="switchTab('tab-standings', this)">Standings</div>
+      <div class="tab-item" onclick="switchTab('tab-admin', this)">System Admin</div>
+    </div>
+
+    <!-- USER TABS -->
+    <div id="user-navbar" class="tab-bar">
+      <div class="tab-item active" onclick="switchTab('tab-betting', this)">Sports</div>
+      <div class="tab-item" onclick="switchTab('tab-standings', this)">Standings</div>
+      <div class="tab-item" onclick="switchTab('tab-mybets', this)">My Bets</div>
+    </div>
+
+    <div class="container">
+      
+      <!-- TAB: BETTING (User) -->
+      <div id="tab-betting" class="tab-pane">
+        <div class="card">
+            <div class="card-header">Live & Upcoming Matches</div>
+            <div id="user-match-list"></div>
+        </div>
+      </div>
+
+      <!-- TAB: STANDINGS (Both) -->
+      <div id="tab-standings" class="tab-pane" style="display:none">
+          <div id="standings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+              <!-- Groups generated by JS -->
+          </div>
+      </div>
+
+      <!-- TAB: MATCH MANAGEMENT (Admin) -->
+      <div id="tab-matches" class="tab-pane" style="display:none">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="card">
+                <div class="card-header">Manual Match Creation</div>
+                <div class="card-body">
+                    <select id="homeSel"></select>
+                    <select id="awaySel"></select>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px">
+                        <input id="o1" placeholder="1">
+                        <input id="oX" placeholder="X">
+                        <input id="o2" placeholder="2">
+                    </div>
+                    <button class="btn-main" style="width:100%" onclick="createMatch()">Create Match</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">Settlement & Pending</div>
+                <div id="admin-pending-matches" style="max-height: 400px; overflow-y:auto;"></div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">Tournament Bracket Control</div>
+            <div class="bracket-container" id="bracket-display"></div>
+            <div class="card-body" style="background:#222; border-top: 1px solid #444;">
+                <button class="btn-main" onclick="initBracket()">Initialize Bracket</button>
+            </div>
+        </div>
+      </div>
+
+      <!-- TAB: SYSTEM ADMIN -->
+      <div id="tab-admin" class="tab-pane" style="display:none">
+          <div class="card">
+              <div class="card-header">Danger Zone</div>
+              <div class="card-body">
+                  <button class="btn-main" onclick="serverCall('generate-season', {legs: 1})">Generate 1-Leg Season</button>
+                  <button class="btn-main" onclick="serverCall('generate-season', {legs: 2})">Generate 2-Leg Season</button>
+                  <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
+                  <button class="btn-danger" style="width:100%" onclick="archiveSeason()">📦 ARCHIVE SEASON & CALCULATE COEFFICIENTS</button>
+              </div>
+          </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- FIREBASE CONFIG ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDPgcnptW0O2OFlE-_TOsTXctjG6RPBZm8",
+      authDomain: "fc26-full-bets.firebaseapp.com",
+      databaseURL: "https://fc26-full-bets-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "fc26-full-bets",
+      storageBucket: "fc26-full-bets.firebasestorage.app",
+      messagingSenderId: "549879537827",
+      appId: "1:549879537827:web:cde58dd532e7e6ffde5f16"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentUser = null;
+    let isAdmin = false;
+
+    // --- SESSION MGMT ---
+    window.onload = () => {
+        const saved = localStorage.getItem('betUser');
+        if(saved) {
+            const data = JSON.parse(saved);
+            loginSuccess(data.user, data.admin);
+        }
+    };
+
+    function handleLogin() {
+        const u = document.getElementById('userIn').value;
+        const p = document.getElementById('passIn').value;
+        
+        if(u === 'Admin' && p === 'IBM99ibm') {
+            loginSuccess('Admin', true);
+        } else {
+            db.ref('users/' + u).once('value', s => {
+                const val = s.val();
+                if(val && val.pass === p) loginSuccess(u, false);
+                else alert("Invalid credentials");
+            });
+        }
+    }
+
+    function loginSuccess(user, adminStatus) {
+        currentUser = user;
+        isAdmin = adminStatus;
+        localStorage.setItem('betUser', JSON.stringify({user, admin: adminStatus}));
+        
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.getElementById('logoutBtn').style.display = 'block';
+        document.getElementById('userNameDisplay').innerText = user + (isAdmin ? ' (Admin)' : '');
+        
+        if(isAdmin) {
+            document.getElementById('admin-navbar').style.display = 'flex';
+            document.getElementById('user-navbar').style.display = 'none';
+        }
+        initListeners();
+    }
+
+    function logout() {
+        localStorage.clear();
+        location.reload();
+    }
+
+    // --- TABS ---
+    function switchTab(tabId, el) {
+        document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+        document.getElementById(tabId).style.display = 'block';
+        document.querySelectorAll('.tab-item').forEach(i => i.classList.remove('active'));
+        el.classList.add('active');
+    }
+
+    // --- SERVER CALL WRAPPER ---
+    // This calls your Project IDX Node.js server
+    async function serverCall(endpoint, data) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const res = await response.json();
+            if(res.success) alert("Operation Successful");
+            else alert("Error: " + res.message);
+        } catch (e) {
+            console.error(e);
+            alert("Server connection failed.");
+        }
+    }
+
+    // --- CORE LOGIC ---
+    function initListeners() {
+        db.ref('matches').on('value', s => renderMatches(s.val() || {}));
+        db.ref('teams').on('value', s => {
+            renderStandings(s.val() || {});
+            populateDropdowns(s.val() || {});
+        });
+    }
+
+    function renderMatches(matches) {
+        const userList = document.getElementById('user-match-list');
+        const adminList = document.getElementById('admin-pending-matches');
+        let userHtml = '';
+        let adminHtml = '';
+
+        Object.entries(matches).forEach(([id, m]) => {
+            if(m.result) return; // Hide settled
+
+            // For Users
+            userHtml += `
+                <div class="match-row">
+                    <div>
+                        <div style="font-weight:bold">${m.home} vs ${m.away}</div>
+                        <div style="font-size:0.7rem; color:#888">${m.group ? 'Group '+m.group : 'Tournament'}</div>
+                    </div>
+                    <div class="odds-group">
+                        <div class="odd-box" onclick="bet('${id}','1',${m.odds['1']})"><span class="odd-lbl">1</span><span class="odd-val">${m.odds['1']}</span></div>
+                        <div class="odd-box" onclick="bet('${id}','X',${m.odds['X']})"><span class="odd-lbl">X</span><span class="odd-val">${m.odds['X']}</span></div>
+                        <div class="odd-box" onclick="bet('${id}','2',${m.odds['2']})"><span class="odd-lbl">2</span><span class="odd-val">${m.odds['2']}</span></div>
+                    </div>
+                </div>`;
+
+            // For Admins
+            adminHtml += `
+                <div style="padding:10px; border-bottom:1px solid #444; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.8rem">${m.home} v ${m.away}</span>
+                    <button class="btn-main" style="padding:5px 10px; font-size:0.7rem;" onclick="settleMatch('${id}')">SET SCORE</button>
+                </div>`;
+        });
+        userList.innerHTML = userHtml || '<div style="padding:20px; color:#666">No matches available.</div>';
+        adminList.innerHTML = adminHtml || '<div style="padding:20px; color:#666">No pending matches.</div>';
+    }
+
+    async function settleMatch(matchId) {
+        const score = prompt("Enter Final Score (e.g. 2-1)");
+        if(!score || !score.includes('-')) return;
+        // CALL SERVER TO SETTLE (Handles payout logic safely)
+        serverCall('settle-match', { matchId, score });
+    }
+
+    async function archiveSeason() {
+        if(!confirm("This will calculate points, update Team Strengths, and wipe the current season. Proceed?")) return;
+        serverCall('archive-season', {});
+    }
+
+    function renderStandings(teamsObj) {
+        const grid = document.getElementById('standings-grid');
+        const groups = ['A','B','C','D','E'];
+        let html = '';
+
+        groups.forEach(g => {
+            const groupTeams = Object.values(teamsObj).filter(t => t.group === g);
+            if(groupTeams.length === 0) return;
+
+            // Simple sort: Strength (You can update this to use actual Live Points if needed)
+            groupTeams.sort((a,b) => (b.points || 0) - (a.points || 0));
+
+            html += `
+                <div class="card">
+                    <div class="card-header">Group ${g}</div>
+                    <div class="card-body">
+                        <table>
+                            <tr><th>Team</th><th>Pts</th><th>STR</th></tr>
+                            ${groupTeams.map(t => `
+                                <tr>
+                                    <td>${t.name}</td>
+                                    <td><strong>${t.points || 0}</strong></td>
+                                    <td style="color:var(--b365-bright-green)">${calculateAvgStrength(t.history)}</td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    </div>
+                </div>`;
+        });
+        grid.innerHTML = html;
+    }
+
+    function calculateAvgStrength(history) {
+        if(!history) return "0.0";
+        const valid = history.filter(h => h !== '-');
+        if(valid.length === 0) return "0.0";
+        const sum = valid.reduce((a,b) => a + parseFloat(b), 0);
+        return (sum / valid.length).toFixed(1);
+    }
+
+    function populateDropdowns(teams) {
+        const opts = Object.values(teams).map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        document.getElementById('homeSel').innerHTML = opts;
+        document.getElementById('awaySel').innerHTML = opts;
+    }
+
+    async function bet(matchId, pick, odds) {
+        const stake = prompt("Enter Stake:", "100");
+        if(!stake || isNaN(stake)) return;
+        
+        // This is still a standard DB write, but the SERVER will settle it later
+        const betData = {
+            matchId, pick, odds, stake: parseInt(stake), 
+            user: currentUser, status: 'pending', time: Date.now()
+        };
+        
+        // Check balance first
+        const snap = await db.ref(`users/${currentUser}/credits`).get();
+        const bal = snap.val() || 0;
+        if(bal < stake) return alert("Insufficient Balance");
+
+        await db.ref(`users/${currentUser}/credits`).set(bal - stake);
+        await db.ref('bets').push(betData);
+        alert("Bet Placed!");
+    }
+  </script>
 </body>
 </html>
-

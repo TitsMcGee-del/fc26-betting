@@ -457,8 +457,13 @@
     }
 
     #login-screen {
-      max-width: 400px;
-      margin: 100px auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(100vh - 70px);
+      padding: 20px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     /* Outright Winner Styles */
@@ -1151,6 +1156,11 @@
         right: 15px; /* Stick to right */
         bottom: 15px; /* Keep at bottom */
       }
+
+      #login-screen {
+        align-items: flex-start;
+        padding-top: 60px;
+      }
     }
   </style>
 
@@ -1257,13 +1267,7 @@
     </div>
   </header>
 
-  <div id="login-screen" style="
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: calc(100vh - 70px);
-    padding: 20px;
-  ">
+  <div id="login-screen">
     <div class="card" style="
       background: linear-gradient(145deg, #1a2744 0%, #0f172a 100%);
       border: 2px solid var(--b365-bright-green);

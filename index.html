@@ -974,6 +974,184 @@
     .admin-self-reports .waiting {
       color: #666;
     }
+
+    /* Bet Slip Styles */
+    .bet-slip-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 380px;
+      background: linear-gradient(145deg, rgba(40, 40, 40, 0.98), rgba(30, 30, 30, 0.98));
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(18, 237, 128, 0.3);
+      border-radius: 16px;
+      padding: 0;
+      display: none;
+      z-index: 999;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(18, 237, 128, 0.1);
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      max-height: 80vh;
+      flex-direction: column;
+    }
+
+    /* Flex display override when shown */
+    .bet-slip-container.show {
+      display: flex !important;
+    }
+
+    .bet-slip-header {
+      background: linear-gradient(135deg, var(--b365-dark-green) 0%, #0a5a45 100%);
+      padding: 18px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--b365-bright-green);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .bet-slip-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .bet-slip-title h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #fff;
+    }
+
+    .bet-slip-badge {
+      background: var(--b365-accent-yellow);
+      color: #000;
+      font-weight: bold;
+      font-size: 0.85rem;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    .bet-slip-toggle-icon {
+      margin-left: 10px;
+      transition: transform 0.3s;
+      font-size: 0.8rem;
+    }
+
+    .bet-slip-body {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .bet-slip-items-container {
+      padding: 15px 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .bet-slip-stake-section {
+      padding: 15px 20px;
+      background: rgba(0, 0, 0, 0.15);
+      flex-shrink: 0;
+    }
+
+    .bet-slip-input-wrapper {
+      position: relative;
+    }
+
+    .bet-slip-input {
+      width: 100%;
+      padding: 14px 18px;
+      padding-left: 35px;
+      font-size: 1.1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border: 2px solid var(--b365-border);
+      border-radius: 10px;
+      color: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .bet-slip-input:focus {
+      border-color: var(--b365-bright-green);
+      box-shadow: 0 0 0 3px rgba(18, 237, 128, 0.15);
+    }
+
+    .bet-slip-currency-symbol {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--b365-accent-yellow);
+      font-weight: bold;
+    }
+
+    .bet-slip-potential {
+      padding: 12px 20px;
+      background: rgba(18, 237, 128, 0.1);
+      border-top: 1px solid rgba(18, 237, 128, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .bet-slip-actions {
+      padding: 15px 20px;
+      padding-top: 0;
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-shrink: 0;
+    }
+
+    /* Minimized State */
+    .bet-slip-container.minimized {
+      width: auto !important;
+      min-width: 200px;
+      height: auto;
+      border-radius: 30px;
+      right: 20px;
+      bottom: 20px;
+    }
+
+    .bet-slip-container.minimized .bet-slip-body {
+      display: none;
+    }
+
+    .bet-slip-container.minimized .bet-slip-header {
+      border-bottom: none;
+      padding: 12px 20px;
+      border-radius: 30px;
+    }
+
+    .bet-slip-container.minimized .bet-slip-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    /* Mobile Styles */
+    @media (max-width: 768px) {
+      .bet-slip-container {
+        width: calc(100% - 30px);
+        right: 15px;
+        left: 15px;
+        bottom: 15px;
+        max-height: 85vh;
+      }
+
+      .bet-slip-container.minimized {
+        width: auto !important; /* Allow shrinking */
+        left: auto; /* Unset left */
+        right: 15px; /* Stick to right */
+        bottom: 15px; /* Keep at bottom */
+      }
+    }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -2698,96 +2876,46 @@
       </div>
 
     </div>
-    <div id="bet-slip" style="
-      position: fixed; 
-      bottom: 20px; 
-      right: 20px; 
-      width: 380px; 
-      background: linear-gradient(145deg, rgba(40, 40, 40, 0.98), rgba(30, 30, 30, 0.98));
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(18, 237, 128, 0.3);
-      border-radius: 16px;
-      padding: 0;
-      display: none; 
-      z-index: 999;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(18, 237, 128, 0.1);
-      overflow: hidden;
-    ">
+    <div id="bet-slip" class="bet-slip-container">
       <!-- Header -->
-      <div style="
-        background: linear-gradient(135deg, var(--b365-dark-green) 0%, #0a5a45 100%);
-        padding: 18px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 2px solid var(--b365-bright-green);
-      ">
-        <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="bet-slip-header" onclick="toggleBetSlip()">
+        <div class="bet-slip-title">
           <span style="font-size: 1.4rem;">🎫</span>
-          <h3
-            style="margin: 0; font-size: 1.1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #fff;">
-            Bet Slip</h3>
+          <h3>Bet Slip</h3>
         </div>
-        <span id="slip-count" style="
-          background: var(--b365-accent-yellow);
-          color: #000;
-          font-weight: bold;
-          font-size: 0.85rem;
-          padding: 4px 12px;
-          border-radius: 20px;
-        ">0</span>
-      </div>
-
-      <!-- Selections -->
-      <div id="slip-items" style="
-        padding: 15px 20px;
-        max-height: 300px;
-        overflow-y: auto;
-        background: rgba(0, 0, 0, 0.2);
-      "></div>
-
-      <!-- Parlay Checkbox & Summary -->
-      <div id="slip-extras" style="padding: 0 20px;"></div>
-
-      <!-- Stake Input -->
-      <div style="padding: 15px 20px; background: rgba(0, 0, 0, 0.15);">
-        <label
-          style="font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">Stake
-          Amount</label>
-        <div style="position: relative;">
-          <input id="slip-stake" type="number" placeholder="Enter stake..." style="
-            width: 100%;
-            padding: 14px 18px;
-            padding-left: 35px;
-            font-size: 1.1rem;
-            background: rgba(0, 0, 0, 0.3);
-            border: 2px solid var(--b365-border);
-            border-radius: 10px;
-            color: #fff;
-            transition: border-color 0.2s, box-shadow 0.2s;
-          " onfocus="this.style.borderColor='var(--b365-bright-green)'; this.style.boxShadow='0 0 0 3px rgba(18, 237, 128, 0.15)';"
-            onblur="this.style.borderColor='var(--b365-border)'; this.style.boxShadow='none';" />
-          <span
-            style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--b365-accent-yellow); font-weight: bold;">$</span>
+        <div style="display:flex; align-items:center;">
+          <span id="slip-count" class="bet-slip-badge">0</span>
+          <span id="bet-slip-toggle-icon" class="bet-slip-toggle-icon">▼</span>
         </div>
       </div>
 
-      <!-- Potential Win Display -->
-      <div id="slip-potential" style="
-        padding: 12px 20px;
-        background: rgba(18, 237, 128, 0.1);
-        border-top: 1px solid rgba(18, 237, 128, 0.2);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      ">
-        <span style="color: #888; font-size: 0.85rem;">Potential Win</span>
-        <span id="slip-potential-value"
-          style="color: var(--b365-bright-green); font-weight: bold; font-size: 1.2rem;">$0.00</span>
-      </div>
+      <div id="bet-slip-body" class="bet-slip-body">
+        <!-- Selections -->
+        <div id="slip-items" class="bet-slip-items-container"></div>
 
-      <!-- Action Buttons -->
-      <div style="padding: 15px 20px; padding-top: 0; display:flex; gap:10px;">
+        <!-- Parlay Checkbox & Summary -->
+        <div id="slip-extras" style="padding: 0 20px;"></div>
+
+        <!-- Stake Input -->
+        <div class="bet-slip-stake-section">
+          <label
+            style="font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">Stake
+            Amount</label>
+          <div class="bet-slip-input-wrapper">
+            <input id="slip-stake" class="bet-slip-input" type="number" placeholder="Enter stake..." />
+            <span class="bet-slip-currency-symbol">$</span>
+          </div>
+        </div>
+
+        <!-- Potential Win Display -->
+        <div id="slip-potential" class="bet-slip-potential">
+          <span style="color: #888; font-size: 0.85rem;">Potential Win</span>
+          <span id="slip-potential-value"
+            style="color: var(--b365-bright-green); font-weight: bold; font-size: 1.2rem;">$0.00</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="bet-slip-actions">
         <button onclick="saveSlipToCart()" style="
           flex: 1;
           padding: 14px;
@@ -4930,11 +5058,23 @@
       document.getElementById('admin-teams-body').innerHTML = html || '<tr><td colspan="5" style="text-align:center; padding:15px; color:#888;">No teams registered.</td></tr>';
     }
 
+    function toggleBetSlip() {
+      const slip = document.getElementById('bet-slip');
+      if (slip) {
+        slip.classList.toggle('minimized');
+      }
+    }
+
     function addToSlip(matchId, outcome, odd) {
       const m = globalMatches[matchId];
       if (m.home === currentUser && outcome !== '1') return alert('You can only bet on your team to win.');
       if (m.away === currentUser && outcome !== '2') return alert('You can only bet on your team to win.');
       betSlip.push({ matchId, outcome, odd });
+
+      // Auto-expand when adding
+      const slip = document.getElementById('bet-slip');
+      if (slip) slip.classList.remove('minimized');
+
       updateBetSlip();
     }
 
@@ -4959,6 +5099,14 @@
 
       // Update count badge
       if (countBadge) countBadge.textContent = betSlip.length;
+
+      // Visibility Control
+      if (betSlip.length > 0) {
+        container.classList.add('show');
+      } else {
+        container.classList.remove('show');
+        container.classList.remove('minimized'); // Reset state when cleared
+      }
 
       // Render bet items with modern styling
       if (betSlip.length === 0) {
@@ -5058,7 +5206,6 @@
       }
 
       document.getElementById('slip-extras').innerHTML = summaryHtml;
-      container.style.display = betSlip.length > 0 ? 'block' : 'none';
     }
 
     function removeFromSlip(index) {

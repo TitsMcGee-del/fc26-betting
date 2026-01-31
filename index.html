@@ -4938,11 +4938,24 @@
       updateBetSlip();
     }
 
+    function updateSlipPotential() {
+      const stakeInput = document.getElementById('slip-stake');
+      const potentialValue = document.getElementById('slip-potential-value');
+
+      if (!stakeInput || !potentialValue) return;
+
+      const stake = parseFloat(stakeInput.value) || 0;
+      const isParlay = document.getElementById('is-parlay') && document.getElementById('is-parlay').checked;
+      const totalOdds = betSlip.reduce((acc, item) => acc * parseFloat(item.odd), 1);
+
+      const potential = (isParlay || betSlip.length === 1) ? (stake * totalOdds) : (stake * betSlip.length);
+      potentialValue.textContent = `$${potential.toFixed(2)}`;
+    }
+
     function updateBetSlip() {
       const itemsDiv = document.getElementById('slip-items');
       const container = document.getElementById('bet-slip');
       const countBadge = document.getElementById('slip-count');
-      const potentialValue = document.getElementById('slip-potential-value');
 
       // Update count badge
       if (countBadge) countBadge.textContent = betSlip.length;
@@ -5004,18 +5017,14 @@
       const isParlay = document.getElementById('is-parlay') && document.getElementById('is-parlay').checked;
       const totalOdds = betSlip.reduce((acc, item) => acc * parseFloat(item.odd), 1);
 
-      // Update potential win
-      const stakeInput = document.getElementById('slip-stake');
-      const stake = parseFloat(stakeInput?.value) || 0;
-      const potential = isParlay || betSlip.length === 1 ? (stake * totalOdds) : (stake * betSlip.length);
-      if (potentialValue) {
-        potentialValue.textContent = `$${potential.toFixed(2)}`;
-      }
+      // Update potential win display efficiently
+      updateSlipPotential();
 
       // Add input listener for real-time potential calculation
+      const stakeInput = document.getElementById('slip-stake');
       if (stakeInput && !stakeInput.hasAttribute('data-listener-attached')) {
         stakeInput.setAttribute('data-listener-attached', 'true');
-        stakeInput.addEventListener('input', updateBetSlip);
+        stakeInput.addEventListener('input', updateSlipPotential);
       }
 
       let summaryHtml = '';

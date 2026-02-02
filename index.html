@@ -2971,6 +2971,18 @@
     let outrightMarket = { open: false, odds: {} };
     let selectedOutrightTeam = null;
 
+    // ⚡ Bolt Optimization: Debounce high-frequency rendering
+    function debounceRAF(fn) {
+      let rafId;
+      return function(...args) {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fn.apply(this, args);
+          rafId = null;
+        });
+      };
+    }
+
     // --- AUTH / SESSION ---
     window.onload = function () {
       const savedUser = localStorage.getItem('bet365_user');
@@ -3370,26 +3382,54 @@
 
     // --- DATA SYNC ---
     function initListeners() {
+      // ⚡ Bolt Optimization: Debounce renderers
+      const dbRenderAdminTeams = debounceRAF(renderAdminTeamsTable);
+      const dbUpdateStandings = debounceRAF(updateStandings);
+      const dbRenderAdminMatches = debounceRAF(renderAdminMatches);
+      const dbRenderBracket = debounceRAF(renderBracketView);
+      const dbRenderUserOdds = debounceRAF(renderUserOdds);
+      const dbRenderMyMatches = debounceRAF(renderMyMatches);
+
+      const dbRenderAdminBetHistory = debounceRAF(renderAdminBetHistory);
+      const dbRenderAnalytics = debounceRAF(renderAnalytics);
+      const dbRenderActiveParlays = debounceRAF(renderActiveParlays);
+      const dbRenderActiveBets = debounceRAF(renderActiveBets);
+      const dbRenderAdminUserList = debounceRAF(renderAdminUserList);
+
+      const dbRenderUserBetHistory = debounceRAF(renderUserBetHistory);
+
+      const dbRenderAdminOutright = debounceRAF(renderAdminOutrightTeams);
+      const dbUpdateOutrightStatus = debounceRAF(updateOutrightMarketStatus);
+      const dbRenderUserOutright = debounceRAF(renderUserOutrightSection);
+
+      const dbRenderAdminOutrightBets = debounceRAF(renderAdminOutrightBets);
+      const dbRenderUserExistingOutrightBet = debounceRAF(renderUserExistingOutrightBet);
+      const dbRenderUserActiveOutright = debounceRAF(renderUserActiveOutright);
+      const dbRenderUserActiveBetsList = debounceRAF(renderUserActiveBetsList);
+      const dbRenderUserActiveParlaysList = debounceRAF(renderUserActiveParlaysList);
+      const dbRenderLeaderboard = debounceRAF(renderLeaderboard);
+      const dbRenderUserResolvedBets = debounceRAF(renderUserResolvedBets);
+
       db.ref('teams').on('value', s => {
         globalTeams = Object.values(s.val() || {});
         updateDropdowns(globalTeams);
-        if (isAdmin) renderAdminTeamsTable(globalTeams);
-        updateStandings(globalTeams, globalMatches);
+        if (isAdmin) dbRenderAdminTeams(globalTeams);
+        dbUpdateStandings(globalTeams, globalMatches);
         if (isAdmin) refreshAdminUserView();
       });
 
       db.ref('matches').on('value', s => {
         globalMatches = s.val() || {};
         if (isAdmin) {
-          renderAdminMatches(globalMatches);
-          renderBracketView(globalMatches);
+          dbRenderAdminMatches(globalMatches);
+          dbRenderBracket(globalMatches);
           // Ensure team table is visible even if teams listener fired early
-          if (globalTeams.length) renderAdminTeamsTable(globalTeams);
+          if (globalTeams.length) dbRenderAdminTeams(globalTeams);
         } else {
-          renderUserOdds(globalMatches);
-          renderMyMatches(globalMatches); // Self-report feature
+          dbRenderUserOdds(globalMatches);
+          dbRenderMyMatches(globalMatches); // Self-report feature
         }
-        if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+        if (globalTeams.length) dbUpdateStandings(globalTeams, globalMatches);
       });
 
       // Bets listener for Admin Active Bets tab
@@ -3401,23 +3441,23 @@
         histRef.on('value', s => {
           const h = s.val();
           parlaysRef.once('value', p => {
-            renderAdminBetHistory(h, p.val(), globalMatches);
-            renderAnalytics(h); // Analytics might need parlay update too eventually
+            dbRenderAdminBetHistory(h, p.val(), globalMatches);
+            dbRenderAnalytics(h); // Analytics might need parlay update too eventually
           });
         });
         parlaysRef.on('value', s => {
           const p = s.val();
           histRef.once('value', h => {
-            renderAdminBetHistory(h.val(), p, globalMatches);
-            renderActiveParlays(p, globalMatches); // New function for active parlays
+            dbRenderAdminBetHistory(h.val(), p, globalMatches);
+            dbRenderActiveParlays(p, globalMatches); // New function for active parlays
           });
         });
 
         db.ref('bets').on('value', s => {
-          renderActiveBets(s.val(), globalMatches);
+          dbRenderActiveBets(s.val(), globalMatches);
         });
         db.ref('users').on('value', s => {
-          renderAdminUserList(s.val());
+          dbRenderAdminUserList(s.val());
         });
       } else {
         // User Consumers
@@ -3427,13 +3467,13 @@
         histRef.on('value', s => {
           const h = s.val();
           parlaysRef.once('value', p => {
-            renderUserBetHistory(h, p.val(), globalMatches);
+            dbRenderUserBetHistory(h, p.val(), globalMatches);
           });
         });
         parlaysRef.on('value', s => {
           const p = s.val();
           histRef.once('value', h => {
-            renderUserBetHistory(h.val(), p, globalMatches);
+            dbRenderUserBetHistory(h.val(), p, globalMatches);
           });
         });
 
@@ -3459,48 +3499,48 @@
         const data = s.val() || { open: false, odds: {} };
         outrightMarket = data;
         if (isAdmin) {
-          renderAdminOutrightTeams();
-          updateOutrightMarketStatus();
+          dbRenderAdminOutright();
+          dbUpdateOutrightStatus();
         } else {
-          renderUserOutrightSection();
+          dbRenderUserOutright();
         }
       });
 
       // Outright Bets Listener
       if (isAdmin) {
         db.ref('outright_bets').on('value', s => {
-          renderAdminOutrightBets(s.val());
+          dbRenderAdminOutrightBets(s.val());
         });
       } else {
         db.ref(`outright_bets/${currentUser}`).on('value', s => {
-          renderUserExistingOutrightBet(s.val());
-          renderUserActiveOutright(s.val());
+          dbRenderUserExistingOutrightBet(s.val());
+          dbRenderUserActiveOutright(s.val());
         });
 
         // User's active bets listener for My Bets tab
         db.ref(`bets/${currentUser}`).on('value', s => {
-          renderUserActiveBetsList(s.val());
+          dbRenderUserActiveBetsList(s.val());
         });
 
         // User's active parlays listener for My Bets tab
         db.ref(`parlays/${currentUser}`).on('value', s => {
-          renderUserActiveParlaysList(s.val());
+          dbRenderUserActiveParlaysList(s.val());
         });
 
         // Leaderboard listener (all users)
         db.ref('users').on('value', s => {
-          renderLeaderboard(s.val());
+          dbRenderLeaderboard(s.val());
         });
 
         // Resolved bets listener (history + parlays with won/lost/cashed_out status)
         db.ref(`history/${currentUser}`).on('value', histSnap => {
           db.ref(`parlays/${currentUser}`).once('value', parlaySnap => {
-            renderUserResolvedBets(histSnap.val(), parlaySnap.val());
+            dbRenderUserResolvedBets(histSnap.val(), parlaySnap.val());
           });
         });
         db.ref(`parlays/${currentUser}`).on('value', parlaySnap => {
           db.ref(`history/${currentUser}`).once('value', histSnap => {
-            renderUserResolvedBets(histSnap.val(), parlaySnap.val());
+            dbRenderUserResolvedBets(histSnap.val(), parlaySnap.val());
           });
         });
       }

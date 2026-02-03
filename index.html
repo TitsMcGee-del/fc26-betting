@@ -3369,27 +3369,49 @@
     }
 
     // --- DATA SYNC ---
+    // Performance Utility: Debounce via requestAnimationFrame
+    function debounceRAF(fn) {
+      let rafId;
+      return function(...args) {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fn.apply(this, args);
+          rafId = null;
+        });
+      };
+    }
+
     function initListeners() {
+      // Debounced Renderers
+      const dUpdateDropdowns = debounceRAF(updateDropdowns);
+      const dRenderAdminTeamsTable = debounceRAF(renderAdminTeamsTable);
+      const dUpdateStandings = debounceRAF(updateStandings);
+      const dRefreshAdminUserView = debounceRAF(refreshAdminUserView);
+      const dRenderAdminMatches = debounceRAF(renderAdminMatches);
+      const dRenderBracketView = debounceRAF(renderBracketView);
+      const dRenderUserOdds = debounceRAF(renderUserOdds);
+      const dRenderMyMatches = debounceRAF(renderMyMatches);
+
       db.ref('teams').on('value', s => {
         globalTeams = Object.values(s.val() || {});
-        updateDropdowns(globalTeams);
-        if (isAdmin) renderAdminTeamsTable(globalTeams);
-        updateStandings(globalTeams, globalMatches);
-        if (isAdmin) refreshAdminUserView();
+        dUpdateDropdowns(globalTeams);
+        if (isAdmin) dRenderAdminTeamsTable(globalTeams);
+        dUpdateStandings(globalTeams, globalMatches);
+        if (isAdmin) dRefreshAdminUserView();
       });
 
       db.ref('matches').on('value', s => {
         globalMatches = s.val() || {};
         if (isAdmin) {
-          renderAdminMatches(globalMatches);
-          renderBracketView(globalMatches);
+          dRenderAdminMatches(globalMatches);
+          dRenderBracketView(globalMatches);
           // Ensure team table is visible even if teams listener fired early
-          if (globalTeams.length) renderAdminTeamsTable(globalTeams);
+          if (globalTeams.length) dRenderAdminTeamsTable(globalTeams);
         } else {
-          renderUserOdds(globalMatches);
-          renderMyMatches(globalMatches); // Self-report feature
+          dRenderUserOdds(globalMatches);
+          dRenderMyMatches(globalMatches); // Self-report feature
         }
-        if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+        if (globalTeams.length) dUpdateStandings(globalTeams, globalMatches);
       });
 
       // Bets listener for Admin Active Bets tab

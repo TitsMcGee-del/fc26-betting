@@ -2971,6 +2971,18 @@
     let outrightMarket = { open: false, odds: {} };
     let selectedOutrightTeam = null;
 
+    // PERFORMANCE OPTIMIZATION: Debounce rendering to align with animation frames
+    const debounceRAF = (fn) => {
+      let rafId;
+      return (...args) => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fn(...args);
+          rafId = null;
+        });
+      };
+    };
+
     // --- AUTH / SESSION ---
     window.onload = function () {
       const savedUser = localStorage.getItem('bet365_user');
@@ -3369,27 +3381,35 @@
     }
 
     // --- DATA SYNC ---
+    const renderTeamsView = debounceRAF(() => {
+      updateDropdowns(globalTeams);
+      if (isAdmin) renderAdminTeamsTable(globalTeams);
+      updateStandings(globalTeams, globalMatches);
+      if (isAdmin) refreshAdminUserView();
+    });
+
+    const renderMatchesView = debounceRAF(() => {
+      if (isAdmin) {
+        renderAdminMatches(globalMatches);
+        renderBracketView(globalMatches);
+        // Ensure team table is visible even if teams listener fired early
+        if (globalTeams.length) renderAdminTeamsTable(globalTeams);
+      } else {
+        renderUserOdds(globalMatches);
+        renderMyMatches(globalMatches); // Self-report feature
+      }
+      if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+    });
+
     function initListeners() {
       db.ref('teams').on('value', s => {
         globalTeams = Object.values(s.val() || {});
-        updateDropdowns(globalTeams);
-        if (isAdmin) renderAdminTeamsTable(globalTeams);
-        updateStandings(globalTeams, globalMatches);
-        if (isAdmin) refreshAdminUserView();
+        renderTeamsView();
       });
 
       db.ref('matches').on('value', s => {
         globalMatches = s.val() || {};
-        if (isAdmin) {
-          renderAdminMatches(globalMatches);
-          renderBracketView(globalMatches);
-          // Ensure team table is visible even if teams listener fired early
-          if (globalTeams.length) renderAdminTeamsTable(globalTeams);
-        } else {
-          renderUserOdds(globalMatches);
-          renderMyMatches(globalMatches); // Self-report feature
-        }
-        if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+        renderMatchesView();
       });
 
       // Bets listener for Admin Active Bets tab

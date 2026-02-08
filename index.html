@@ -3368,18 +3368,33 @@
       el.classList.add('active');
     }
 
+    // --- UTILS ---
+    const debounceRAF = (fn) => {
+      let rafId;
+      return (...args) => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fn(...args);
+          rafId = null;
+        });
+      };
+    };
+
     // --- DATA SYNC ---
     function initListeners() {
-      db.ref('teams').on('value', s => {
-        globalTeams = Object.values(s.val() || {});
+      const renderTeams = debounceRAF(() => {
         updateDropdowns(globalTeams);
         if (isAdmin) renderAdminTeamsTable(globalTeams);
         updateStandings(globalTeams, globalMatches);
         if (isAdmin) refreshAdminUserView();
       });
 
-      db.ref('matches').on('value', s => {
-        globalMatches = s.val() || {};
+      db.ref('teams').on('value', s => {
+        globalTeams = Object.values(s.val() || {});
+        renderTeams();
+      });
+
+      const renderMatches = debounceRAF(() => {
         if (isAdmin) {
           renderAdminMatches(globalMatches);
           renderBracketView(globalMatches);
@@ -3390,6 +3405,11 @@
           renderMyMatches(globalMatches); // Self-report feature
         }
         if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+      });
+
+      db.ref('matches').on('value', s => {
+        globalMatches = s.val() || {};
+        renderMatches();
       });
 
       // Bets listener for Admin Active Bets tab

@@ -2966,10 +2966,24 @@
     let globalTeams = [];
     let globalTeamStats = {};
     let globalMatches = {};
+    let globalHistory = {};
+    let globalParlays = {};
     let betSlip = [];
     let betCart = []; // Saved bet slips for later
     let outrightMarket = { open: false, odds: {} };
     let selectedOutrightTeam = null;
+
+    // Performance utility
+    function debounceRAF(fn) {
+      let rafId;
+      return (...args) => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fn(...args);
+          rafId = null;
+        });
+      };
+    }
 
     // --- AUTH / SESSION ---
     window.onload = function () {
@@ -3370,26 +3384,38 @@
 
     // --- DATA SYNC ---
     function initListeners() {
+      // Debounced Renderers
+      const debouncedRenderAdminTeams = debounceRAF(() => renderAdminTeamsTable(globalTeams));
+      const debouncedRefreshAdminUser = debounceRAF(() => refreshAdminUserView());
+      const debouncedUpdateStandings = debounceRAF(() => updateStandings(globalTeams, globalMatches));
+
+      const debouncedRenderAdminMatches = debounceRAF(() => {
+        renderAdminMatches(globalMatches);
+        renderBracketView(globalMatches);
+        if (globalTeams.length) renderAdminTeamsTable(globalTeams);
+      });
+
+      const debouncedRenderUserMatches = debounceRAF(() => {
+        renderUserOdds(globalMatches);
+        renderMyMatches(globalMatches);
+      });
+
       db.ref('teams').on('value', s => {
         globalTeams = Object.values(s.val() || {});
         updateDropdowns(globalTeams);
-        if (isAdmin) renderAdminTeamsTable(globalTeams);
-        updateStandings(globalTeams, globalMatches);
-        if (isAdmin) refreshAdminUserView();
+        if (isAdmin) debouncedRenderAdminTeams();
+        debouncedUpdateStandings();
+        if (isAdmin) debouncedRefreshAdminUser();
       });
 
       db.ref('matches').on('value', s => {
         globalMatches = s.val() || {};
         if (isAdmin) {
-          renderAdminMatches(globalMatches);
-          renderBracketView(globalMatches);
-          // Ensure team table is visible even if teams listener fired early
-          if (globalTeams.length) renderAdminTeamsTable(globalTeams);
+          debouncedRenderAdminMatches();
         } else {
-          renderUserOdds(globalMatches);
-          renderMyMatches(globalMatches); // Self-report feature
+          debouncedRenderUserMatches();
         }
-        if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+        if (globalTeams.length) debouncedUpdateStandings();
       });
 
       // Bets listener for Admin Active Bets tab
@@ -3398,19 +3424,23 @@
         const histRef = db.ref('history');
         const parlaysRef = db.ref('parlays');
 
+        const debouncedRenderHistory = debounceRAF(() => {
+             renderAdminBetHistory(globalHistory, globalParlays, globalMatches);
+             renderAnalytics(globalHistory);
+        });
+
+        const debouncedRenderParlays = debounceRAF(() => {
+             renderActiveParlays(globalParlays, globalMatches);
+        });
+
         histRef.on('value', s => {
-          const h = s.val();
-          parlaysRef.once('value', p => {
-            renderAdminBetHistory(h, p.val(), globalMatches);
-            renderAnalytics(h); // Analytics might need parlay update too eventually
-          });
+          globalHistory = s.val() || {};
+          debouncedRenderHistory();
         });
         parlaysRef.on('value', s => {
-          const p = s.val();
-          histRef.once('value', h => {
-            renderAdminBetHistory(h.val(), p, globalMatches);
-            renderActiveParlays(p, globalMatches); // New function for active parlays
-          });
+          globalParlays = s.val() || {};
+          debouncedRenderHistory();
+          debouncedRenderParlays();
         });
 
         db.ref('bets').on('value', s => {
@@ -3424,17 +3454,17 @@
         const histRef = db.ref(`history/${currentUser}`);
         const parlaysRef = db.ref(`parlays/${currentUser}`);
 
+        const debouncedRenderUserHist = debounceRAF(() => {
+             renderUserBetHistory(globalHistory, globalParlays, globalMatches);
+        });
+
         histRef.on('value', s => {
-          const h = s.val();
-          parlaysRef.once('value', p => {
-            renderUserBetHistory(h, p.val(), globalMatches);
-          });
+          globalHistory = s.val() || {};
+          debouncedRenderUserHist();
         });
         parlaysRef.on('value', s => {
-          const p = s.val();
-          histRef.once('value', h => {
-            renderUserBetHistory(h.val(), p, globalMatches);
-          });
+          globalParlays = s.val() || {};
+          debouncedRenderUserHist();
         });
 
         // Notification listener - add to dropdown and show toast

@@ -3369,17 +3369,37 @@
     }
 
     // --- DATA SYNC ---
+    /**
+     * Bolt Optimization: Debounce rendering updates using requestAnimationFrame.
+     * This prevents layout thrashing when Firebase triggers multiple rapid updates (e.g. initial load).
+     */
+    function debounceRAF(fn) {
+      let rafId;
+      return function (...args) {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fn.apply(this, args);
+          rafId = null;
+        });
+      };
+    }
+
     function initListeners() {
-      db.ref('teams').on('value', s => {
-        globalTeams = Object.values(s.val() || {});
+      // ⚡ Bolt: Debounce heavy UI updates to run at most once per frame
+      const renderTeamsDebounced = debounceRAF(() => {
         updateDropdowns(globalTeams);
         if (isAdmin) renderAdminTeamsTable(globalTeams);
         updateStandings(globalTeams, globalMatches);
         if (isAdmin) refreshAdminUserView();
       });
 
-      db.ref('matches').on('value', s => {
-        globalMatches = s.val() || {};
+      db.ref('teams').on('value', s => {
+        globalTeams = Object.values(s.val() || {});
+        renderTeamsDebounced();
+      });
+
+      // ⚡ Bolt: Debounce match rendering to prevent blocking main thread on bulk updates
+      const renderMatchesDebounced = debounceRAF(() => {
         if (isAdmin) {
           renderAdminMatches(globalMatches);
           renderBracketView(globalMatches);
@@ -3390,6 +3410,11 @@
           renderMyMatches(globalMatches); // Self-report feature
         }
         if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+      });
+
+      db.ref('matches').on('value', s => {
+        globalMatches = s.val() || {};
+        renderMatchesDebounced();
       });
 
       // Bets listener for Admin Active Bets tab

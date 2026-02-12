@@ -2961,6 +2961,18 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // PERFORMANCE OPTIMIZATION: Debounce render calls to animation frame
+    function debounceRAF(fn) {
+      let rafId;
+      return (...args) => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fn(...args);
+          rafId = null;
+        });
+      };
+    }
+
     let currentUser = null;
     let isAdmin = false;
     let globalTeams = [];
@@ -3370,16 +3382,19 @@
 
     // --- DATA SYNC ---
     function initListeners() {
-      db.ref('teams').on('value', s => {
-        globalTeams = Object.values(s.val() || {});
+      const updateTeamsUI = debounceRAF(() => {
         updateDropdowns(globalTeams);
         if (isAdmin) renderAdminTeamsTable(globalTeams);
         updateStandings(globalTeams, globalMatches);
         if (isAdmin) refreshAdminUserView();
       });
 
-      db.ref('matches').on('value', s => {
-        globalMatches = s.val() || {};
+      db.ref('teams').on('value', s => {
+        globalTeams = Object.values(s.val() || {});
+        updateTeamsUI();
+      });
+
+      const updateMatchesUI = debounceRAF(() => {
         if (isAdmin) {
           renderAdminMatches(globalMatches);
           renderBracketView(globalMatches);
@@ -3390,6 +3405,11 @@
           renderMyMatches(globalMatches); // Self-report feature
         }
         if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+      });
+
+      db.ref('matches').on('value', s => {
+        globalMatches = s.val() || {};
+        updateMatchesUI();
       });
 
       // Bets listener for Admin Active Bets tab

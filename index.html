@@ -2971,6 +2971,17 @@
     let outrightMarket = { open: false, odds: {} };
     let selectedOutrightTeam = null;
 
+    // Performance Utility: Debounce via requestAnimationFrame
+    function debounceRAF(fn) {
+      let frame;
+      return (...params) => {
+        if (frame) cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          fn(...params);
+        });
+      };
+    }
+
     // --- AUTH / SESSION ---
     window.onload = function () {
       const savedUser = localStorage.getItem('bet365_user');
@@ -3378,8 +3389,8 @@
         if (isAdmin) refreshAdminUserView();
       });
 
-      db.ref('matches').on('value', s => {
-        globalMatches = s.val() || {};
+      // Debounced rendering for high-frequency match updates
+      const renderMatchesApp = debounceRAF(() => {
         if (isAdmin) {
           renderAdminMatches(globalMatches);
           renderBracketView(globalMatches);
@@ -3390,6 +3401,11 @@
           renderMyMatches(globalMatches); // Self-report feature
         }
         if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+      });
+
+      db.ref('matches').on('value', s => {
+        globalMatches = s.val() || {};
+        renderMatchesApp();
       });
 
       // Bets listener for Admin Active Bets tab

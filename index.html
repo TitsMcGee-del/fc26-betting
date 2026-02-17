@@ -2961,11 +2961,28 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // Utility: Debounce rendering via requestAnimationFrame to prevent layout thrashing
+    function debounceRAF(fn) {
+      let rafId;
+      return (...args) => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fn(...args);
+          rafId = null;
+        });
+      };
+    }
+
     let currentUser = null;
     let isAdmin = false;
     let globalTeams = [];
     let globalTeamStats = {};
     let globalMatches = {};
+    let globalUsers = {}; // Cache for users/leaderboard
+    let globalUserBets = {}; // Cache for active bets
+    let globalUserParlays = {}; // Cache for parlays
+    let globalUserHistory = {}; // Cache for history
+    let globalUserOutright = null; // Cache for outright bet
     let betSlip = [];
     let betCart = []; // Saved bet slips for later
     let outrightMarket = { open: false, odds: {} };
@@ -3368,28 +3385,46 @@
       el.classList.add('active');
     }
 
+    // Consolidated Render Function (Debounced)
+    const renderApp = debounceRAF(() => {
+      // 1. Update derived data (stats)
+      if (globalTeams.length) {
+        updateStandings(globalTeams, globalMatches); // Side-effect: updates globalTeamStats
+      }
+
+      // 2. Render common elements
+      updateDropdowns(globalTeams);
+
+      // 3. Render Views based on role
+      if (isAdmin) {
+        renderAdminMatches(globalMatches);
+        renderBracketView(globalMatches);
+        renderAdminTeamsTable(globalTeams);
+        renderAdminUserList(globalUsers); // Uses cached users + new stats
+      } else {
+        renderUserOdds(globalMatches);
+        renderMyMatches(globalMatches);
+        renderLeaderboard(globalUsers);
+        renderUserActiveBetsList(globalUserBets);
+        renderUserActiveParlaysList(globalUserParlays);
+        renderUserBetHistory(globalUserHistory, globalUserParlays, globalMatches);
+        renderUserResolvedBets(globalUserHistory, globalUserParlays);
+        renderUserExistingOutrightBet(globalUserOutright);
+        renderUserActiveOutright(globalUserOutright);
+        renderUserOutrightSection();
+      }
+    });
+
     // --- DATA SYNC ---
     function initListeners() {
       db.ref('teams').on('value', s => {
         globalTeams = Object.values(s.val() || {});
-        updateDropdowns(globalTeams);
-        if (isAdmin) renderAdminTeamsTable(globalTeams);
-        updateStandings(globalTeams, globalMatches);
-        if (isAdmin) refreshAdminUserView();
+        renderApp();
       });
 
       db.ref('matches').on('value', s => {
         globalMatches = s.val() || {};
-        if (isAdmin) {
-          renderAdminMatches(globalMatches);
-          renderBracketView(globalMatches);
-          // Ensure team table is visible even if teams listener fired early
-          if (globalTeams.length) renderAdminTeamsTable(globalTeams);
-        } else {
-          renderUserOdds(globalMatches);
-          renderMyMatches(globalMatches); // Self-report feature
-        }
-        if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+        renderApp();
       });
 
       // Bets listener for Admin Active Bets tab
@@ -3417,24 +3452,20 @@
           renderActiveBets(s.val(), globalMatches);
         });
         db.ref('users').on('value', s => {
-          renderAdminUserList(s.val());
+          globalUsers = s.val() || {};
+          renderApp();
         });
       } else {
         // User Consumers
-        const histRef = db.ref(`history/${currentUser}`);
-        const parlaysRef = db.ref(`parlays/${currentUser}`);
-
-        histRef.on('value', s => {
-          const h = s.val();
-          parlaysRef.once('value', p => {
-            renderUserBetHistory(h, p.val(), globalMatches);
-          });
+        // History & Parlays - Sync to globals
+        db.ref(`history/${currentUser}`).on('value', s => {
+          globalUserHistory = s.val() || {};
+          renderApp();
         });
-        parlaysRef.on('value', s => {
-          const p = s.val();
-          histRef.once('value', h => {
-            renderUserBetHistory(h.val(), p, globalMatches);
-          });
+
+        db.ref(`parlays/${currentUser}`).on('value', s => {
+          globalUserParlays = s.val() || {};
+          renderApp();
         });
 
         // Notification listener - add to dropdown and show toast
@@ -3462,7 +3493,7 @@
           renderAdminOutrightTeams();
           updateOutrightMarketStatus();
         } else {
-          renderUserOutrightSection();
+          renderApp(); // Renders user outright section
         }
       });
 
@@ -3473,42 +3504,24 @@
         });
       } else {
         db.ref(`outright_bets/${currentUser}`).on('value', s => {
-          renderUserExistingOutrightBet(s.val());
-          renderUserActiveOutright(s.val());
+          globalUserOutright = s.val(); // Can be null
+          renderApp();
         });
 
         // User's active bets listener for My Bets tab
         db.ref(`bets/${currentUser}`).on('value', s => {
-          renderUserActiveBetsList(s.val());
-        });
-
-        // User's active parlays listener for My Bets tab
-        db.ref(`parlays/${currentUser}`).on('value', s => {
-          renderUserActiveParlaysList(s.val());
+          globalUserBets = s.val() || {};
+          renderApp();
         });
 
         // Leaderboard listener (all users)
         db.ref('users').on('value', s => {
-          renderLeaderboard(s.val());
-        });
-
-        // Resolved bets listener (history + parlays with won/lost/cashed_out status)
-        db.ref(`history/${currentUser}`).on('value', histSnap => {
-          db.ref(`parlays/${currentUser}`).once('value', parlaySnap => {
-            renderUserResolvedBets(histSnap.val(), parlaySnap.val());
-          });
-        });
-        db.ref(`parlays/${currentUser}`).on('value', parlaySnap => {
-          db.ref(`history/${currentUser}`).once('value', histSnap => {
-            renderUserResolvedBets(histSnap.val(), parlaySnap.val());
-          });
+          globalUsers = s.val() || {};
+          renderApp();
         });
       }
     }
 
-    function refreshAdminUserView() {
-      db.ref('users').once('value', s => renderAdminUserList(s.val()));
-    }
 
     // --- TEAM MGMT ---
     async function registerTeam() {

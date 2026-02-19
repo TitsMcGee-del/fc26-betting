@@ -1,3 +1,3 @@
-## 2024-05-24 - [Input Event Optimization]
-**Learning:** In vanilla JS apps without a virtual DOM, re-rendering entire lists (via `innerHTML`) on high-frequency events like `input` causes significant layout thrashing.
-**Action:** Always decouple calculation logic from rendering logic. Ensure `oninput` handlers only update specific text nodes, not rebuild parent containers.
+## 2024-05-24 - [Debounced Rendering Missing]
+**Learning:** The codebase documentation or memory implied `debounceRAF` was in use for rendering, but it was completely absent in the actual `index.html`. This led to synchronous rendering of all match updates, a potential bottleneck.
+**Action:** Always verify the existence of "known" utilities in the actual code before assuming they are active. Added `debounceRAF` to decouple data ingestion from UI painting.

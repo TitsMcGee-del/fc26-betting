@@ -3369,27 +3369,48 @@
     }
 
     // --- DATA SYNC ---
+
+    // Performance: Debounce rendering to next animation frame
+    function debounceRAF(fn) {
+      let rafId;
+      return (...args) => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          fn(...args);
+          rafId = null;
+        });
+      };
+    }
+
     function initListeners() {
-      db.ref('teams').on('value', s => {
-        globalTeams = Object.values(s.val() || {});
+      // Create debounced renderers
+      const renderTeamsUpdate = debounceRAF(() => {
         updateDropdowns(globalTeams);
         if (isAdmin) renderAdminTeamsTable(globalTeams);
         updateStandings(globalTeams, globalMatches);
         if (isAdmin) refreshAdminUserView();
       });
 
-      db.ref('matches').on('value', s => {
-        globalMatches = s.val() || {};
+      const renderMatchesUpdate = debounceRAF(() => {
         if (isAdmin) {
           renderAdminMatches(globalMatches);
           renderBracketView(globalMatches);
-          // Ensure team table is visible even if teams listener fired early
           if (globalTeams.length) renderAdminTeamsTable(globalTeams);
         } else {
           renderUserOdds(globalMatches);
           renderMyMatches(globalMatches); // Self-report feature
         }
         if (globalTeams.length) updateStandings(globalTeams, globalMatches);
+      });
+
+      db.ref('teams').on('value', s => {
+        globalTeams = Object.values(s.val() || {});
+        renderTeamsUpdate();
+      });
+
+      db.ref('matches').on('value', s => {
+        globalMatches = s.val() || {};
+        renderMatchesUpdate();
       });
 
       // Bets listener for Admin Active Bets tab
